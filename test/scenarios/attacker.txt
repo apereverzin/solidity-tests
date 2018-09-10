@@ -1,0 +1,125 @@
+var Web3 = require('web3');
+web3 = new Web3(new Web3.providers.HttpProvider("http://localhost:8545"))
+
+var ownerAddress = '0xc0a862fbbc7d9396df9a923513b084c33499feee'
+
+web3.personal.unlockAccount(ownerAddress, '', 1500000)
+
+function waitForContractDeployment(depoyedContract) {
+    const interval = 500;
+    const transactionReceiptAsync = function(resolve, reject) {
+        if (depoyedContract.address == null) {
+            setTimeout(
+                () => transactionReceiptAsync(resolve, reject), interval
+            );
+        } else {
+            resolve(depoyedContract.address);
+        }
+    };
+    return new Promise(transactionReceiptAsync);
+};
+
+function waitForTransactionCompletion(txHash) {
+    const interval = 500;
+    const transactionReceiptAsync = function(resolve, reject) {
+        web3.eth.getTransactionReceipt(txHash, (error, receipt) => {
+            if (error) {
+                console.log('Rejected');
+                reject(error);
+            } else if (receipt == null) {
+                setTimeout(
+                    () => transactionReceiptAsync(resolve, reject), interval
+                );
+            } else {
+                resolve(receipt);
+            }
+        });
+    };
+    return new Promise(transactionReceiptAsync);
+};
+
+var payerAbiText = fs.readFileSync('/private/etc/Work1/ethereum/capexmove/Demo/test/build/Payer.abi').toString()
+var payerAbi = JSON.parse(payerAbiText)
+var payerBytecodeText = fs.readFileSync('/private/etc/Work1/ethereum/capexmove/Demo/test/build/Payer.bin').toString()
+var payerBytecode = '0x' + payerBytecodeText
+var Payer = web3.eth.contract(payerAbi)
+var payerDeployedContract = Payer.new({data: payerBytecode, from: ownerAddress, gas: 4700000})
+waitForContractDeployment(payerDeployedContract).
+then(
+    function(address) {
+        console.log('Payer: ' + address);
+    }
+)
+var payerContractInstance = Payer.at(payerDeployedContract.address)
+
+var successfulAttackerAbiText = fs.readFileSync('/private/etc/Work1/ethereum/capexmove/Demo/test/build/SuccessfulAttacker.abi').toString()
+var successfulAttackerAbi = JSON.parse(successfulAttackerAbiText)
+var successfulAttackerBytecodeText = fs.readFileSync('/private/etc/Work1/ethereum/capexmove/Demo/test/build/SuccessfulAttacker.bin').toString()
+var successfulAttackerBytecode = '0x' + successfulAttackerBytecodeText
+var SuccessfulAttacker = web3.eth.contract(successfulAttackerAbi)
+var successfulAttackerDeployedContract = SuccessfulAttacker.new(payerContractInstance.address, true, {data: successfulAttackerBytecode, from: ownerAddress, gas: 4700000})
+waitForContractDeployment(successfulAttackerDeployedContract).
+then(
+    function(address) {
+        console.log('SuccessfulAttacker: ' + address);
+    }
+)
+var successfulAttackerContractInstance = SuccessfulAttacker.at(successfulAttackerDeployedContract.address)
+
+var unsuccessfulAttackerAbiText = fs.readFileSync('/private/etc/Work1/ethereum/capexmove/Demo/test/build/UnsuccessfulAttacker.abi').toString()
+var unsuccessfulAttackerAbi = JSON.parse(unsuccessfulAttackerAbiText)
+var unsuccessfulAttackerBytecodeText = fs.readFileSync('/private/etc/Work1/ethereum/capexmove/Demo/test/build/UnsuccessfulAttacker.bin').toString()
+var unsuccessfulAttackerBytecode = '0x' + unsuccessfulAttackerBytecodeText
+var UnsuccessfulAttacker = web3.eth.contract(unsuccessfulAttackerAbi)
+var unsuccessfulAttackerDeployedContract = UnsuccessfulAttacker.new(payerContractInstance.address, true, {data: unsuccessfulAttackerBytecode, from: ownerAddress, gas: 4700000})
+waitForContractDeployment(unsuccessfulAttackerDeployedContract).
+then(
+    function(address) {
+        console.log('UnsuccessfulAttacker: ' + address);
+    }
+)
+var unsuccessfulAttackerContractInstance = UnsuccessfulAttacker.at(unsuccessfulAttackerDeployedContract.address)
+
+console.log('Payer balance: ' + web3.eth.getBalance(payerDeployedContract.address).toNumber())
+console.log('SuccessfulAttacker balance: ' + web3.eth.getBalance(successfulAttackerDeployedContract.address).toNumber())
+console.log('UnsuccessfulAttacker balance: ' + web3.eth.getBalance(unsuccessfulAttackerDeployedContract.address).toNumber())
+console.log('Owner balance: ' + web3.eth.getBalance(ownerAddress).toNumber())
+
+th = web3.eth.sendTransaction({value: 200000000, from: ownerAddress, to: payerDeployedContract.address, gas: 4712388})
+waitForTransactionCompletion(th).
+then(
+    function(receipt) {
+        console.log(receipt)
+        console.log('Gas used: ' + receipt.gasUsed)
+        console.log('Payer balance: ' + web3.eth.getBalance(payerDeployedContract.address).toNumber())
+        console.log('SuccessfulAttacker balance: ' + web3.eth.getBalance(successfulAttackerDeployedContract.address).toNumber())
+        console.log('UnsuccessfulAttacker balance: ' + web3.eth.getBalance(unsuccessfulAttackerDeployedContract.address).toNumber())
+        console.log('Owner balance: ' + web3.eth.getBalance(ownerAddress).toNumber())
+    }
+)
+
+th = successfulAttackerContractInstance.withdraw({from: ownerAddress, gas: 4700000})
+waitForTransactionCompletion(th).
+then(
+    function(receipt) {
+        console.log(receipt)
+        console.log('Gas used: ' + receipt.gasUsed)
+        console.log('Payer balance: ' + web3.eth.getBalance(payerDeployedContract.address).toNumber())
+        console.log('SuccessfulAttacker balance: ' + web3.eth.getBalance(successfulAttackerDeployedContract.address).toNumber())
+        console.log('UnsuccessfulAttacker balance: ' + web3.eth.getBalance(unsuccessfulAttackerDeployedContract.address).toNumber())
+        console.log('Owner balance: ' + web3.eth.getBalance(ownerAddress).toNumber())
+    }
+)
+
+th = unsuccessfulAttackerContractInstance.withdraw({from: ownerAddress, gas: 4700000})
+waitForTransactionCompletion(th).
+then(
+    function(receipt) {
+        console.log(receipt)
+        console.log('Gas used: ' + receipt.gasUsed)
+        console.log('Payer balance: ' + web3.eth.getBalance(payerDeployedContract.address).toNumber())
+        console.log('SuccessfulAttacker balance: ' + web3.eth.getBalance(successfulAttackerDeployedContract.address).toNumber())
+        console.log('UnsuccessfulAttacker balance: ' + web3.eth.getBalance(unsuccessfulAttackerDeployedContract.address).toNumber())
+        console.log('Owner balance: ' + web3.eth.getBalance(ownerAddress).toNumber())
+    }
+)

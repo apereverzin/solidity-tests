@@ -1,0 +1,81 @@
+var Web3 = require('web3');
+web3 = new Web3(new Web3.providers.HttpProvider("http://localhost:8545"))
+
+var ownerAddress = '0xc0a862fbbc7d9396df9a923513b084c33499feee'
+
+web3.personal.unlockAccount(ownerAddress, '', 1500000)
+
+function waitForContractDeployment(depoyedContract) {
+    const interval = 500;
+    const transactionReceiptAsync = function(resolve, reject) {
+        if (depoyedContract.address == null) {
+            setTimeout(
+                () => transactionReceiptAsync(resolve, reject), interval
+            );
+        } else {
+            resolve(depoyedContract.address);
+        }
+    };
+    return new Promise(transactionReceiptAsync);
+};
+
+function waitForTransactionCompletion(txHash) {
+    const interval = 500;
+    const transactionReceiptAsync = function(resolve, reject) {
+        web3.eth.getTransactionReceipt(txHash, (error, receipt) => {
+            if (error) {
+                console.log('Rejected');
+                reject(error);
+            } else if (receipt == null) {
+                setTimeout(
+                    () => transactionReceiptAsync(resolve, reject), interval
+                );
+            } else {
+                resolve(receipt);
+            }
+        });
+    };
+    return new Promise(transactionReceiptAsync);
+};
+
+var testAbiText = fs.readFileSync('/private/etc/Work1/ethereum/capexmove/Demo/test/build/TestContract.abi').toString()
+
+var testAbi = JSON.parse(testAbiText)
+
+var testBytecodeText = fs.readFileSync('/private/etc/Work1/ethereum/capexmove/Demo/test/build/TestContract.bin').toString()
+
+var testBytecode = '0x' + testBytecodeText
+var Test = web3.eth.contract(testAbi)
+var testDeployedContract = Test.new({data: testBytecode, from: ownerAddress, gas: 4700000})
+waitForContractDeployment(testDeployedContract).
+then(
+    function(address) {
+        console.log(address);
+    }
+)
+
+var testContractInstance = Test.at(testDeployedContract.address)
+
+console.log('Contract balance: ' + web3.eth.getBalance(testDeployedContract.address).toNumber())
+console.log('Owner balance: ' + web3.eth.getBalance(ownerAddress).toNumber())
+
+th = web3.eth.sendTransaction({value: 200000000000, from: ownerAddress, to: testDeployedContract.address, gas: 4712388})
+waitForTransactionCompletion(th).
+then(
+    function(receipt) {
+        console.log('Gas used: ' + receipt.gasUsed)
+        console.log('Contract balance: ' + web3.eth.getBalance(testDeployedContract.address).toNumber())
+        console.log('Owner balance: ' + web3.eth.getBalance(ownerAddress).toNumber())
+    }
+)
+
+th = testContractInstance.kill({from: ownerAddress, gas: 4700000})
+waitForTransactionCompletion(th).
+then(
+    function(receipt) {
+        console.log(receipt)
+        console.log('Gas used: ' + receipt.gasUsed)
+        console.log('Contract balance: ' + web3.eth.getBalance(testDeployedContract.address).toNumber())
+        console.log('Owner balance: ' + web3.eth.getBalance(ownerAddress).toNumber())
+    }
+)
