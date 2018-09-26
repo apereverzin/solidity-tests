@@ -1,0 +1,69 @@
+var Web3 = require('web3');
+web3 = new Web3(new Web3.providers.HttpProvider("http://localhost:8545"))
+
+var ownerAddress = '0xc0a862fbbc7d9396df9a923513b084c33499feee'
+
+web3.personal.unlockAccount(ownerAddress, '', 1500000)
+
+function waitForContractDeployment(depoyedContract) {
+    const interval = 500;
+    const transactionReceiptAsync = function(resolve, reject) {
+        if (depoyedContract.address == null) {
+            setTimeout(
+                () => transactionReceiptAsync(resolve, reject), interval
+            );
+        } else {
+            resolve(depoyedContract.address);
+        }
+    };
+    return new Promise(transactionReceiptAsync);
+};
+
+function waitForTransactionCompletion(txHash) {
+    const interval = 500;
+    const transactionReceiptAsync = function(resolve, reject) {
+        web3.eth.getTransactionReceipt(txHash, (error, receipt) => {
+            if (error) {
+                console.log('Rejected');
+                reject(error);
+            } else if (receipt == null) {
+                setTimeout(
+                    () => transactionReceiptAsync(resolve, reject), interval
+                );
+            } else {
+                resolve(receipt);
+            }
+        });
+    };
+    return new Promise(transactionReceiptAsync);
+};
+
+var registerAbiText = fs.readFileSync('/private/etc/Work1/ethereum/solidity-tests/test/assembly/build/Register.abi').toString()
+var registerAbi = JSON.parse(registerAbiText)
+var registerBytecodeText = fs.readFileSync('/private/etc/Work1/ethereum/solidity-tests/test/assembly/build/Register.bin').toString()
+var registerBytecode = '0x' + registerBytecodeText
+var Register = web3.eth.contract(registerAbi)
+var registerDeployedContract = Register.new({data: registerBytecode, from: ownerAddress, gas: 4700000})
+waitForContractDeployment(registerDeployedContract).
+then(
+    function(address) {
+        console.log('Register: ' + address);
+    }
+)
+var registerContractInstance = Register.at(registerDeployedContract.address)
+
+var testContractAbiText = fs.readFileSync('/private/etc/Work1/ethereum/solidity-tests/test/assembly/build/TestContract.abi').toString()
+var testContractAbi = JSON.parse(testContractAbiText)
+var testContractBytecodeText = fs.readFileSync('/private/etc/Work1/ethereum/solidity-tests/test/assembly/build/TestContract.bin').toString()
+var testContractBytecode = '0x' + testContractBytecodeText
+var TestContract = web3.eth.contract(testContractAbi)
+var testContractDeployedContract = TestContract.new({data: testContractBytecode, from: ownerAddress, gas: 4700000})
+waitForContractDeployment(testContractDeployedContract).
+then(
+    function(address) {
+        console.log('TestContract: ' + address);
+    }
+)
+var testContractContractInstance = TestContract.at(testContractDeployedContract.address)
+
+registerContractInstance.isContract(ownerAddress)

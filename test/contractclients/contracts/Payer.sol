@@ -17,17 +17,42 @@ contract Payer {
         emit PaidIn(msg.sender, msg.value);
     }
 
-    function registerClient() public {
-        require(registeredClients[msg.sender] == 0);
+    function registerClient(address client) public {
+        require(registeredClients[client] == 0);
 
-        clients[clientCount] = msg.sender;
+        clients[clientCount] = client;
         clientCount++;
-        registeredClients[msg.sender] == 1;
+        registeredClients[client] == 1;
 
-        emit ClientRegistered(msg.sender);
+        emit ClientRegistered(client);
     }
 
-    event PaidIn(address indexed _from, uint256 _value);
+    function distribute() public {
+        uint256 val = 1000000000;
+        for (uint i = 0; i < clientCount; i++) {
+            address clientAddr = clients[i];
+            clientAddr.transfer(val);
+            emit Distributed(clientAddr, val);
+        }
+    }
+
+    function distributeConsiderably() public {
+        uint256 val = 1000000000;
+        for (uint i = 0; i < clientCount; i++) {
+            address clientAddr = clients[i];
+            if (clientAddr.send(val)) {
+                emit Distributed(clientAddr, val);
+            } else {
+                emit DistributionFailed(clientAddr, val);
+            }
+        }
+    }
+
+event PaidIn(address indexed _from, uint256 _value);
 
     event ClientRegistered(address indexed _client);
+
+    event Distributed(address indexed _client, uint256 _value);
+
+    event DistributionFailed(address indexed _client, uint256 _value);
 }

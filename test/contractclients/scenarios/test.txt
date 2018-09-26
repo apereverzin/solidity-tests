@@ -1,0 +1,91 @@
+var Web3 = require('web3');
+web3 = new Web3(new Web3.providers.HttpProvider("http://localhost:8545"))
+
+var ownerAddress = '0xc0a862fbbc7d9396df9a923513b084c33499feee'
+
+web3.personal.unlockAccount(ownerAddress, '', 1500000)
+
+function waitForContractDeployment(depoyedContract) {
+    const interval = 500;
+    const transactionReceiptAsync = function(resolve, reject) {
+        if (depoyedContract.address == null) {
+            setTimeout(
+                () => transactionReceiptAsync(resolve, reject), interval
+            );
+        } else {
+            resolve(depoyedContract.address);
+        }
+    };
+    return new Promise(transactionReceiptAsync);
+};
+
+function waitForTransactionCompletion(txHash) {
+    const interval = 500;
+    const transactionReceiptAsync = function(resolve, reject) {
+        web3.eth.getTransactionReceipt(txHash, (error, receipt) => {
+            if (error) {
+                console.log('Rejected');
+                reject(error);
+            } else if (receipt == null) {
+                setTimeout(
+                    () => transactionReceiptAsync(resolve, reject), interval
+                );
+            } else {
+                resolve(receipt);
+            }
+        });
+    };
+    return new Promise(transactionReceiptAsync);
+};
+
+var payerAbiText = fs.readFileSync('/private/etc/Work1/ethereum/solidity-tests/test/contractclients/build/Payer.abi').toString()
+var payerAbi = JSON.parse(payerAbiText)
+var payerBytecodeText = fs.readFileSync('/private/etc/Work1/ethereum/solidity-tests/test/contractclients/build/Payer.bin').toString()
+var payerBytecode = '0x' + payerBytecodeText
+var Payer = web3.eth.contract(payerAbi)
+var payerDeployedContract = Payer.new({data: payerBytecode, from: ownerAddress, gas: 4700000})
+waitForContractDeployment(payerDeployedContract).
+then(
+    function(address) {
+        console.log('Payer: ' + address);
+    }
+)
+var payerContractInstance = Payer.at(payerDeployedContract.address)
+
+var attackerAbiText = fs.readFileSync('/private/etc/Work1/ethereum/solidity-tests/test/contractclients/build/Attacker.abi').toString()
+var attackerAbi = JSON.parse(attackerAbiText)
+var attackerBytecodeText = fs.readFileSync('/private/etc/Work1/ethereum/solidity-tests/test/contractclients/build/Attacker.bin').toString()
+var attackerBytecode = '0x' + attackerBytecodeText
+var Attacker = web3.eth.contract(attackerAbi)
+var attackerDeployedContract = Attacker.new({data: attackerBytecode, from: ownerAddress, gas: 4700000})
+waitForContractDeployment(attackerDeployedContract).
+then(
+    function(address) {
+        console.log('Attacker: ' + address);
+    }
+)
+var attackerContractInstance = Attacker.at(attackerDeployedContract.address)
+
+var validContractAbiText = fs.readFileSync('/private/etc/Work1/ethereum/solidity-tests/test/contractclients/build/ValidContract.abi').toString()
+var validContractAbi = JSON.parse(validContractAbiText)
+var validContractBytecodeText = fs.readFileSync('/private/etc/Work1/ethereum/solidity-tests/test/contractclients/build/ValidContract.bin').toString()
+var validContractBytecode = '0x' + validContractBytecodeText
+var ValidContract = web3.eth.contract(validContractAbi)
+var validContractDeployedContract = ValidContract.new({data: validContractBytecode, from: ownerAddress, gas: 4700000})
+waitForContractDeployment(validContractDeployedContract).
+then(
+    function(address) {
+        console.log('ValidContract: ' + address);
+    }
+)
+var validContractContractInstance = ValidContract.at(validContractDeployedContract.address)
+
+th = web3.eth.sendTransaction({value: 2000000000000000000, from: ownerAddress, to: payerDeployedContract.address, gas: 4712388})
+th = payerContractInstance.registerClient(attackerContractInstance.address, {from: ownerAddress, gas: 4712388})
+th = payerContractInstance.registerClient(validContractContractInstance.address, {from: ownerAddress, gas: 4712388})
+
+web3.eth.getBalance(attackerContractInstance.address).toNumber()
+web3.eth.getBalance(validContractContractInstance.address).toNumber()
+
+th = payerContractInstance.distribute({from: ownerAddress, gas: 4712388})
+th = payerContractInstance.distributeConsiderably({from: ownerAddress, gas: 4712388})
