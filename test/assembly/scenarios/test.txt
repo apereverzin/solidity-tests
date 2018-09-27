@@ -67,3 +67,5 @@ then(
 var testContractContractInstance = TestContract.at(testContractDeployedContract.address)
 
 registerContractInstance.isContract(ownerAddress)
+
+registerContractInstance.isContract(registerDeployedContract.address)
